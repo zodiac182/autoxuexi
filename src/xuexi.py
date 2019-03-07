@@ -15,6 +15,7 @@ import json
 import time
 import logging
 import threading
+import random
 from selenium.webdriver.remote.remote_connection import LOGGER
 # from selenium.webdriver.chrome.options import Options
 # from PIL import Image, ImageTk
@@ -32,7 +33,7 @@ logging.basicConfig(level=logging.ERROR)
 '''
 Since it is used in personal PC, no database is available.
 Try to store url list by files.
-    articals: 
+    articles: 
     videos:
 
 File named *.old means it has been read.
@@ -59,19 +60,19 @@ class XUEXI:
         title:
         id:
     '''
-    def get_new_artical(self):
+    def get_new_article(self):
         ret = ''
-        list_a = iter(os.listdir('articals/'))
+        list_a = iter(os.listdir('articles/'))
         while True:
             try:
                 file = next(list_a)
-                if os.path.exists('articals/' + file + '.old'):
-                    os.remove('articals/' + file + '.old')
+                if os.path.exists('articles/' + file + '.old'):
+                    os.remove('articles/' + file + '.old')
 
                 if not file.endswith('old'):
-                    os.rename('articals/' + file, 'articals/' + file + '.old')
+                    os.rename('articles/' + file, 'articles/' + file + '.old')
 
-                    with open('articals/' + file + '.old', 'rb') as f:
+                    with open('articles/' + file + '.old', 'rb') as f:
                         ret = json.load(f)
                     yield ret
             except StopIteration:
@@ -165,19 +166,19 @@ class XUEXI:
         return score
 
     '''
-    get an new artical url, and open it
+    get an new article url, and open it
     '''
-    def read_new_artical(self):
-        new_artical = next(self.get_new_artical())
+    def read_new_article(self):
+        new_article = next(self.get_new_article())
 
-        if new_artical == '':
+        if new_article == '':
             app.log(u'没有找到新文章，请重新更新数据')
             app.log(u'自动进行数据更新...')
             update_local_data()
             return
 
-        self.driver.get(new_artical['url'])
-        app.log(u'正在学习文章：%s' % new_artical['title'])
+        self.driver.get(new_article['url'])
+        app.log(u'正在学习文章：%s' % new_article['title'])
         while True:
             ActionChains(self.driver).key_down(Keys.DOWN).perform()
 
@@ -190,7 +191,7 @@ class XUEXI:
             if u'scroll-done' in self.driver.title:
                 break
             else:
-                time.sleep(2)
+                time.sleep(random.randint(0,3))
 
     '''
     get an new video url, and open it
@@ -230,7 +231,7 @@ class XUEXI:
         if video_duration > 0 and video_duration < 10 * 60:
             time.sleep(video_duration)
         else:
-            time.sleep(10 * 60)
+            time.sleep(random.randint(6 * 60, 10 * 60))
 
     def close(self):
         self.driver.quit()
@@ -250,13 +251,13 @@ class Job(threading.Thread):
             if len(score) < 5:
                 continue
 
-            if score[1] < 6 or score[3] < 8:  # read articals
-                self.xx_obj.read_new_artical()
+            if score[1] < 6 or score[3] < 8:  # read articles
+                self.xx_obj.read_new_article()
             elif score[2] < 6 or score[4] < 10:  # watch videos
                 self.xx_obj.read_new_video()
             else:                          #  all tasks are done, sleep
                 app.log(u'当日学习任务已完成。 如果保持程序继续运行，明天将自动进行学习。')
-                time.sleep(60 * 60)
+                time.sleep(random.randint(30*60, 90 * 60))
 
     def stop(self):
         self.__running.clear()
@@ -323,8 +324,8 @@ class App():
 
     def clear_click(self):
         if tkMessageBox.askokcancel(u'谨慎操作', u'清理数据将删除您的阅读记录，您确定要清理数据吗？'):
-            for file in os.listdir('articals/'):
-                os.remove('articals/' + file)
+            for file in os.listdir('articles/'):
+                os.remove('articles/' + file)
             for file in os.listdir('videos/'):
                 os.remove('videos/' + file)
 
@@ -340,7 +341,7 @@ class App():
 def update_local_data():
     resp = requests.get('https://www.xuexi.cn/dataindex.js')
     new_video_count = 0
-    new_artical_count = 0
+    new_article_count = 0
     if resp.ok:
         data = json.loads(resp.content[14:-1])
         for key in data:
@@ -349,15 +350,15 @@ def update_local_data():
                     for detail in data[key][child_key]:
                         if '_id' in detail and 'static_page_url' in detail:
                             if 'e43e220633a65f9b6d8b53712cba9caa' in detail['static_page_url']:
-                                if not os.path.exists('articals/' + detail['_id'] + '.old') and not os.path.exists('articals/' + detail['_id']):
-                                    with open('articals/' + detail['_id'], 'wb+') as f:
+                                if not os.path.exists('articles/' + detail['_id'] + '.old') and not os.path.exists('articles/' + detail['_id']):
+                                    with open('articles/' + detail['_id'], 'wb+') as f:
                                         content = {
                                             'id': detail['_id'],
                                             'url': detail['static_page_url'],
                                             'title': detail['frst_name']
                                         }
                                         json.dump(content, f)
-                                    new_artical_count += 1
+                                    new_article_count += 1
                             elif 'cf94877c29e1c685574e0226618fb1be' in detail['static_page_url']:
                                 if not os.path.exists('videos/' + detail['_id'] + '.old') and not os.path.exists('videos/' + detail['_id']):
                                     with open('videos/' + detail['_id'], 'wb+') as f:
@@ -368,7 +369,7 @@ def update_local_data():
                                         }
                                         json.dump(content, f)
                                     new_video_count += 1
-        app.log(u'数据更新完毕, 新增文章%d篇，新增视频%d个' % (new_artical_count, new_video_count))
+        app.log(u'数据更新完毕, 新增文章%d篇，新增视频%d个' % (new_article_count, new_video_count))
     else:
         app.log(u'获取新数据失败，请重试')
 
