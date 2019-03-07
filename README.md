@@ -12,3 +12,6 @@
 如果不能运行程序，请下载与您chrome适应的chromedriver版本，并将文件替换到drives/文件夹下。
 下载地址:
 http://chromedriver.storage.googleapis.com/index.html
+
+ToDo：
+使用邮箱远程进行控制。
