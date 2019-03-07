@@ -1,8 +1,14 @@
-ʹ�÷���:
-���ѹ���� fuckѧϰǿ��.exe ����������
-�ȴ��򿪵Ĵ����еĳ����Զ���ɡ�ѧϰ�������������̨�������������飬����Ҫ��С���Ǹ����ڡ�
+介绍：
+每天自动进行学习强国文章/视频的学习。 使用python+selenium+chromedriver实现。
 
-��������
-���Ա��밲װchrome������� ����������г�������������chrome��Ӧ��chromedriver�汾�������ļ��滻��drives/�ļ����¡�
-���ص�ַ
+使用方法:
+
+请解压后点击 fuck学习强国.exe 来启动程序。
+等待打开的窗口中的程序自动完成“学习”，你可以用这台电脑做其他事情，但不要最小化那个窗口。
+
+配置需求：
+电脑必须安装chrome浏览器。 
+
+如果不能运行程序，请下载与您chrome适应的chromedriver版本，并将文件替换到drives/文件夹下。
+下载地址:
 http://chromedriver.storage.googleapis.com/index.html
