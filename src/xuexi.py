@@ -379,5 +379,5 @@ if __name__ == '__main__':
     global app
     app = App(parent=root)
     root.geometry('640x480')
-    root.title(u'自动学习--fxxk 学习强国')
+    root.title(u'自动学习--学习强国 v0.1 beta')
     root.mainloop()
