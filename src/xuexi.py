@@ -198,9 +198,6 @@ class XUEXI:
     '''
     def read_new_video(self):
         new_video = next(self.get_new_video())
-
-        print new_video
-
         if new_video == '':
             app.log(u'没有找到新视频，请重新更新数据')
             app.log(u'自动进行数据更新...')
