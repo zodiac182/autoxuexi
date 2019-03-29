@@ -413,10 +413,24 @@ def update_local_data():
         app.log(u'获取新数据失败，请重试')
 
 
+def pre_init():
+    if not os.path.exists('./articles'):
+        os.mkdir('./articles')
+
+    if not os.path.exists('./videos'):
+        os.mkdir('./videos')
+
+    if not os.path.exists('./driver/chromedriver.exe'):
+        raise Exception('chromedriver.exe not found', OSError)
+
+
+
 if __name__ == '__main__':
     root = Tk()
     global app
     app = App(parent=root)
     root.geometry('640x480')
     root.title(u'自动学习--学习强国 v0.1.1')
+
+    pre_init()
     root.mainloop()
