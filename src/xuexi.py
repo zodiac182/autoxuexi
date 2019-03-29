@@ -39,6 +39,7 @@ Try to store url list by files.
 File named *.old means it has been read.
 '''
 
+
 class XUEXI:
     def __init__(self):
         # chrome_options = Options()
@@ -52,11 +53,11 @@ class XUEXI:
         # self.driver = webdriver.Chrome('driver/chromedriver.exe', chrome_options=chrome_options)
         self.driver = webdriver.Chrome('driver/chromedriver.exe')
         LOGGER.setLevel(logging.ERROR)
-        #self.driver.get('https://pc.xuexi.cn/points/my-points.html')
+        # self.driver.get('https://pc.xuexi.cn/points/my-points.html')
 
     '''
     return json:
-        url: 
+        url:
         title:
         id:
     '''
@@ -79,10 +80,9 @@ class XUEXI:
                 ret = ''
                 yield ret
 
-
     '''
     return json:
-        url: 
+        url:
         title:
         id:
     '''
@@ -114,7 +114,7 @@ class XUEXI:
         reg_url = r'https://pc.xuexi.cn/points/login.html.*'  # check if it has been login
 
         self.driver.get('https://pc.xuexi.cn/points/my-points.html')
-        #self.driver.switch_to.frame('ddlogin-iframe')
+        # self.driver.switch_to.frame('ddlogin-iframe')
 
         if re.match(reg_url, self.driver.current_url):
             # login_QR = WebDriverWait(self.driver, 10).until(
@@ -148,19 +148,17 @@ class XUEXI:
         # score_url = r'https://pc.xuexi.cn/points/my-points.html.*'
         # if not re.match(login_url, self.driver.current_url) and not re.match(score_url, self.driver.current_url):
         #     self.driver.get('https://pc.xuexi.cn/points/my-points.html')
-        #self.driver.switch_to.default_content()
-        while self.login() == False:
+        # self.driver.switch_to.default_content()
+        while not self.login():
             pass
-
 
         score = []
         app.log(u'当前得分情况：')
         score_title = iter([u'每日登陆', u'阅读文章', u'观看视频', u'文章学习时长', u'视频学习时长'])
-        score_reg = u'^(%d)分.*'
         for s in self.driver.find_elements_by_xpath('//div[@class="my-points-card-text"]'):
-            app.log(u'      %s: %s' %(score_title.next(),s.text), printtime=False)
+            app.log(u'      %s: %s' % (next(score_title), s.text), printtime=False)
             try:
-                score.append(int(s.text.split('/')[0][:-1]))
+                score.append({'score':int(s.text.split('/')[0][:-1]),'target':int(s.text.split('/')[1][:-1])})
             except:
                 pass
         return score
@@ -191,15 +189,13 @@ class XUEXI:
             if u'scroll-done' in self.driver.title:
                 break
             else:
-                time.sleep(random.randint(0,3))
+                time.sleep(random.randint(0, 3))
 
     '''
     get an new video url, and open it
     '''
     def read_new_video(self):
         new_video = next(self.get_new_video())
-
-        print new_video
 
         if new_video == '':
             app.log(u'没有找到新视频，请重新更新数据')
@@ -228,10 +224,10 @@ class XUEXI:
             time.sleep(1)
 
         # wait at most 10 minute for each video
-        if video_duration > 0 and video_duration < 10 * 60:
+        if video_duration > 0 and video_duration < 5 * 60:
             time.sleep(video_duration)
         else:
-            time.sleep(random.randint(6 * 60, 10 * 60))
+            time.sleep(random.randint(3 * 60, 5 * 60))
 
     def close(self):
         self.driver.quit()
@@ -240,59 +236,86 @@ class XUEXI:
 class Job(threading.Thread):
     def __init__(self, *args, **kwargs):
         super(Job, self).__init__()
-        self.__running = threading.Event()
-        self.__running.clear()
+        self.__running = threading.Event()   # true: running    false: quit
+        self.__flag = threading.Event()      # true: not done     flase: done
+        self.__running.set()
+        self.__flag.set()                 
+        self.xx_obj = XUEXI()
 
     def run(self):
-        self.xx_obj = XUEXI()
-        self.__running.set()
         while self.__running.isSet():
             score = self.xx_obj.get_score()
             if len(score) < 5:
+                time.sleep(3)
                 continue
-
-            if score[1] < 6 or score[3] < 8:  # read articles
+            if score[1]['score'] < score[1]['target'] or score[3]['score'] < score[3]['target'] :  # read articles
                 self.xx_obj.read_new_article()
-            elif score[2] < 6 or score[4] < 10:  # watch videos
+            elif score[2]['score'] < score[2]['target'] or score[4]['score'] < score[4]['target'] :  # watch videos
                 self.xx_obj.read_new_video()
-            else:                          #  all tasks are done, sleep
-                app.log(u'当日学习任务已完成。 如果保持程序继续运行，明天将自动进行学习。')
-                time.sleep(random.randint(30*60, 90 * 60))
+            else:                          # all tasks are done, sleep
+                app.log(u'当日学习任务已完成。 ')
+                self.__flag.clear()
+                
+            self.__flag.wait()                     # wait until next task
 
+    #  stop task
     def stop(self):
-        self.__running.clear()
+        self.__flag.clear()
+
+    def job_start(self):
+        self.__flag.set()
+
+    '''
+    start task.
+    return value:
+    #   running:
+    #   done
+    '''
+    def status(self):
+        if self.__flag.isSet():
+            return 'running' 
+        else:
+            return 'done'
+
+    def quit(self):
+        self.__running.set()
         self.xx_obj.close()
+
 
 class App():
     def __init__(self, parent=None, *args, **kwargs):
         Grid.columnconfigure(parent, 0, weight=1)
         Grid.columnconfigure(parent, 1, weight=1)
         Grid.columnconfigure(parent, 2, weight=1)
+        Grid.columnconfigure(parent, 3, weight=1)
+        Grid.columnconfigure(parent, 4, weight=1)
 
         Grid.rowconfigure(parent, 1, weight=1)
 
         self.btn_start = Button(parent, text=u"开始学习", command=self.start_click)
         self.btn_start.grid(row=0, column=0, padx=5, pady=5, sticky='NWSE')
 
-        self.btn_stop = Button(parent, text=u"停止学习", command=self.stop_click)
-        # self.btn_stop.grid(row=0, column=1, padx=5, pady=5, sticky='NWSE')
+        self.btn_pause = Button(parent, text=u"暂停学习", command=self.pause_click)
+        self.btn_pause.grid(row=0, column=1, padx=5, pady=5, sticky='NWSE')
+
+        self.btn_quit = Button(parent, text=u"退出学习", command=self.quit_click)
+        self.btn_quit.grid(row=0, column=2, padx=5, pady=5, sticky='NWSE')
 
         self.btn_sync = Button(parent, text=u"更新数据", command=self.sync_click)
-        self.btn_sync.grid(row=0, column=1, padx=5, pady=5, sticky='NWSE')
+        self.btn_sync.grid(row=0, column=3, padx=5, pady=5, sticky='NWSE')
 
         self.btn_clear = Button(parent, text=u"清理数据", command=self.clear_click)
-        self.btn_clear.grid(row=0, column=2, padx=5, pady=5, sticky='NWSE')
+        self.btn_clear.grid(row=0, column=4, padx=5, pady=5, sticky='NWSE')
+
 
         self.log_content = Listbox(parent, selectmode=EXTENDED, bg='#FFFFFF')
-        self.log_content.grid(row=1, column=0, padx=5, pady=5, columnspan=3, sticky='NSWE')
+        self.log_content.grid(row=1, column=0, padx=5, pady=5, columnspan=5, sticky='NSWE')
 
         self.vbar = Scrollbar(
             parent, orient=VERTICAL, command=self.log_content.yview)
         self.log_content.configure(yscrollcommand=self.vbar.set)
-        self.vbar.grid(row=1, column=3, sticky='NS')
+        self.vbar.grid(row=1, column=5, sticky='NS')
 
-
-        self.job = Job()
 
     def log(self, logstring, printtime=True):
         if printtime:
@@ -303,19 +326,25 @@ class App():
         self.log_content.see(END)
 
     def start_click(self):
-        if not self.job.isAlive():
+        try:
+            self.job
+            self.log(u'继续当日学习，请不要将浏览器最小化。期间您可以正常使用电脑。')
+        except:
             self.job = Job()
             self.job.setDaemon(True)
             self.job.start()
             self.log(u'开始学习，请不要将浏览器最小化。期间您可以正常使用电脑。')
-            self.btn_start.grid_forget()
-            self.btn_stop.grid(row=0, column=0, padx=5, pady=5, sticky='NWSE')
 
-    def stop_click(self):
-        self.btn_stop.grid_forget()
-        self.btn_start.grid(row=0, column=0, padx=5, pady=5, sticky='NWSE')
-        self.log(u'用户停止')
+        if self.job.status() != 'running':
+            self.job.job_start()
+
+    def pause_click(self):
+        self.log(u'用户暂停学习，请不要关闭浏览器。')
         self.job.stop()
+
+    def quit_click(self):
+        self.log(u'用户退出')
+        self.job.quit()
 
     def sync_click(self):
         p = threading.Thread(target=update_local_data)
@@ -338,38 +367,48 @@ class App():
 
     #     self.label_img.grid(row=2, column=0, padx=5, pady=5, columnspan=3, sticky='NSWE')
 
+
 def update_local_data():
-    resp = requests.get('https://www.xuexi.cn/dataindex.js')
+    try:
+        resp = requests.get('https://www.xuexi.cn/dataindex.js')
+    except Exception as ex:
+        app.log(u'请求超时，请检查是否使用了代理。 使用代理进行数据爬取的功能尚未开放。')
+        raise_exception(ex, requests.exceptions.ConnectionError)
+
     new_video_count = 0
     new_article_count = 0
     if resp.ok:
-        data = json.loads(resp.content[14:-1])
-        for key in data:
-            for child_key in data[key]:
-                if type(data[key][child_key]) == list:
-                    for detail in data[key][child_key]:
-                        if '_id' in detail and 'static_page_url' in detail:
-                            if 'e43e220633a65f9b6d8b53712cba9caa' in detail['static_page_url']:
-                                if not os.path.exists('articles/' + detail['_id'] + '.old') and not os.path.exists('articles/' + detail['_id']):
-                                    with open('articles/' + detail['_id'], 'wb+') as f:
-                                        content = {
-                                            'id': detail['_id'],
-                                            'url': detail['static_page_url'],
-                                            'title': detail['frst_name']
-                                        }
-                                        json.dump(content, f)
-                                    new_article_count += 1
-                            elif 'cf94877c29e1c685574e0226618fb1be' in detail['static_page_url']:
-                                if not os.path.exists('videos/' + detail['_id'] + '.old') and not os.path.exists('videos/' + detail['_id']):
-                                    with open('videos/' + detail['_id'], 'wb+') as f:
-                                        content = {
-                                            'id': detail['_id'],
-                                            'url': detail['static_page_url'],
-                                            'title': detail['frst_name']
-                                        }
-                                        json.dump(content, f)
-                                    new_video_count += 1
-        app.log(u'数据更新完毕, 新增文章%d篇，新增视频%d个' % (new_article_count, new_video_count))
+        try:
+            data = json.loads(resp.content[14:-1])
+            for key in data:
+                for child_key in data[key]:
+                    if type(data[key][child_key]) == list:
+                        for detail in data[key][child_key]:
+                            if '_id' in detail and 'static_page_url' in detail:
+                                if 'e43e220633a65f9b6d8b53712cba9caa' in detail['static_page_url']:
+                                    if not os.path.exists('articles/' + detail['_id'] + '.old') and not os.path.exists('articles/' + detail['_id']):
+                                        with open('articles/' + detail['_id'], 'wb+') as f:
+                                            content = {
+                                                'id': detail['_id'],
+                                                'url': detail['static_page_url'],
+                                                'title': detail['frst_name']
+                                            }
+                                            json.dump(content, f)
+                                        new_article_count += 1
+                                elif 'cf94877c29e1c685574e0226618fb1be' in detail['static_page_url']:
+                                    if not os.path.exists('videos/' + detail['_id'] + '.old') and not os.path.exists('videos/' + detail['_id']):
+                                        with open('videos/' + detail['_id'], 'wb+') as f:
+                                            content = {
+                                                'id': detail['_id'],
+                                                'url': detail['static_page_url'],
+                                                'title': detail['frst_name']
+                                            }
+                                            json.dump(content, f)
+                                        new_video_count += 1
+            app.log(u'数据更新完毕, 新增文章%d篇，新增视频%d个' % (new_article_count, new_video_count))
+        except Exception as ex:
+            app.log(ex)
+            app.log(u'数据转换失败，请重试.')
     else:
         app.log(u'获取新数据失败，请重试')
 
@@ -379,5 +418,5 @@ if __name__ == '__main__':
     global app
     app = App(parent=root)
     root.geometry('640x480')
-    root.title(u'自动学习--学习强国 v0.1 beta')
+    root.title(u'自动学习--学习强国 v0.1.1')
     root.mainloop()
