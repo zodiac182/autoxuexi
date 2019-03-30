@@ -373,7 +373,7 @@ def update_local_data():
         resp = requests.get('https://www.xuexi.cn/dataindex.js')
     except Exception as ex:
         app.log(u'请求超时，请检查是否使用了代理。 使用代理进行数据爬取的功能尚未开放。')
-        raise_exception(ex, requests.exceptions.ConnectionError)
+        raise ConnectionError(ex)
 
     new_video_count = 0
     new_article_count = 0
