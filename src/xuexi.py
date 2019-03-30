@@ -421,7 +421,7 @@ def pre_init():
         os.mkdir('./videos')
 
     if not os.path.exists('./driver/chromedriver.exe'):
-        raise Exception('chromedriver.exe not found', OSError)
+        raise IOError('chromedriver.exe not found')
 
 
 
