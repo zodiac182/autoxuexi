@@ -9,8 +9,15 @@ from selenium.webdriver.common.action_chains import ActionChains
 import requests
 from datetime import datetime
 import os
-from Tkinter import *
-import tkMessageBox
+import sys
+
+if sys.version[0] == '3':
+    from tkinter import *
+    import tkinter.messagebox as tkMessageBox
+elif sys.version[0] == '2':
+    from Tkinter import *
+    import tkMessageBox
+
 import json
 import time
 import logging
@@ -387,7 +394,7 @@ def update_local_data():
                             if '_id' in detail and 'static_page_url' in detail:
                                 if 'e43e220633a65f9b6d8b53712cba9caa' in detail['static_page_url']:
                                     if not os.path.exists('articles/' + detail['_id'] + '.old') and not os.path.exists('articles/' + detail['_id']):
-                                        with open('articles/' + detail['_id'], 'wb+') as f:
+                                        with open('articles/' + detail['_id'], 'w+') as f:
                                             content = {
                                                 'id': detail['_id'],
                                                 'url': detail['static_page_url'],
@@ -397,7 +404,7 @@ def update_local_data():
                                         new_article_count += 1
                                 elif 'cf94877c29e1c685574e0226618fb1be' in detail['static_page_url']:
                                     if not os.path.exists('videos/' + detail['_id'] + '.old') and not os.path.exists('videos/' + detail['_id']):
-                                        with open('videos/' + detail['_id'], 'wb+') as f:
+                                        with open('videos/' + detail['_id'], 'w+') as f:
                                             content = {
                                                 'id': detail['_id'],
                                                 'url': detail['static_page_url'],
