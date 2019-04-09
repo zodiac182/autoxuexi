@@ -231,15 +231,10 @@ class XUEXI:
                     ActionChains(self.driver).key_down(Keys.DOWN).perform()
                     self.__exit_flag.wait(1)
 
-
                 duration = WebDriverWait(self.driver, 60).until(expected_conditions.presence_of_element_located(
                     (By.XPATH, './/span[@class="duration"]')))
 
-                print(duration)
-
                 ret = duration.get_attribute('innerText')
-
-                print(ret)
 
                 time_arr = ret.split(':')
 
@@ -250,8 +245,6 @@ class XUEXI:
                     video_duration = 60 * 60   # more than 1 hour, count it as i hour
                 else:
                     video_duration = 0
-
-                print(video_duration)
 
                 # wait at most 10 minute for each video
                 if video_duration > 0 and video_duration < 5 * 60:
