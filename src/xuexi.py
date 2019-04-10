@@ -19,7 +19,6 @@ import random
 from selenium.webdriver.remote.remote_connection import LOGGER
 from selenium.webdriver.chrome.options import Options
 import schedule
-import sched
 # from PIL import Image, ImageTk
 # import base64
 # import cv2
@@ -32,16 +31,6 @@ logging.basicConfig(level=logging.ERROR)
 # https://www.xuexi.cn/dataindex.js?v=1549968788
 
 
-'''
-Since it is used in personal PC, no database is available.
-Try to store url list by files.
-    articles:
-    videos:
-
-File named *.old means it has been read.
-'''
-
-
 class XUEXI:
     def __init__(self, use_Dingtalk=False):
         chrome_options = Options()
@@ -52,7 +41,6 @@ class XUEXI:
         if os.path.exists('driver/chrome.exe'):
             chrome_options.binary_location = 'driver/chrome.exe'
         # chrome_options.add_argument('--no-sandbox')#解决DevToolsActivePort文件不存在的报错
-
         # chrome_options.add_argument('window-size=800x600') #指定浏览器分辨率
         # chrome_options.add_argument('--disable-gpu') #谷歌文档提到需要加上这个属性来规避bug
         # chrome_options.add_argument('--hide-scrollbars') #隐藏滚动条, 应对一些特殊页面
@@ -60,7 +48,6 @@ class XUEXI:
         # chrome_options.add_argument('--headless') #浏览器不提供可视化页面. linux下如果系统不支持可视化不加这条会启动失败
         self.driver = webdriver.Chrome('driver/chromedriver.exe', chrome_options=chrome_options)
         LOGGER.setLevel(logging.CRITICAL)
-        # self.driver.get('https://pc.xuexi.cn/points/my-points.html')
 
     '''
         return value:
@@ -72,7 +59,9 @@ class XUEXI:
         self.driver.get('https://pc.xuexi.cn/points/login.html')
 
         if re.match(r'^https://pc.xuexi.cn/points/login.html.*', self.driver.current_url) and (login_method.get() == 'Dingtalk' or self.use_Dingtalk):
-            self.driver.get('https://login.dingtalk.com/login/index.htm?goto=https%3A%2F%2Foapi.dingtalk.com%2Fconnect%2Foauth2%2Fsns_authorize%3Fappid%3Ddingoankubyrfkttorhpou%26response_type%3Dcode%26scope%3Dsnsapi_login%26redirect_uri%3Dhttps%3A%2F%2Fpc-api.xuexi.cn%2Fopen%2Fapi%2Fsns%2Fcallback')
+            self.driver.get('https://login.dingtalk.com/login/index.htm?goto=https%3A%2F%2Foapi.dingtalk.com%2Fconnect%2Foauth2%2Fsns_authorize%3F'
+                            'appid%3Ddingoankubyrfkttorhpou%26response_type%3Dcode%26scope%3Dsnsapi_login%26redirect_uri%3Dhttps%3A%2F%2Fpc-api.xuexi.cn'
+                            '%2Fopen%2Fapi%2Fsns%2Fcallback')
             if self.use_Dingtalk:    # use profile to login
                 try:
                     WebDriverWait(self.driver, 60).until(expected_conditions.presence_of_element_located(
@@ -410,10 +399,10 @@ class App():
         # ######################## setting panel begin ###############################################
         def validate_time():
             try:
-                time.strptime(self.schd_time.get(), '%H:%M')
+                self.schd_time.set(time.strftime('%H:%M', time.strptime(self.schd_time.get(), '%H:%M')))
                 return True
             except ValueError:
-                messagebox.showerror(u'错误', u'时间错误。正确格式例子：23：59')
+                messagebox.showerror(u'错误', u'时间错误。正确格式例子：23:59')
                 return False
             return False
 
