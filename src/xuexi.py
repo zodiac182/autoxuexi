@@ -32,13 +32,32 @@ logging.basicConfig(level=logging.ERROR)
 # https://www.xuexi.cn/dataindex.js?v=1549968788
 
 
+global version
+version = '1.0'
+
+
+class Autoresized_Notebook(ttk.Notebook):
+    def __init__(self, master=None, **kw):
+        ttk.Notebook.__init__(self, master, **kw)
+        self.bind("<<NotebookTabChanged>>", self._on_tab_changed)
+
+    def _on_tab_changed(self, event):
+        event.widget.update_idletasks()
+
+        tab = event.widget.nametowidget(event.widget.select())
+        # event.widget.configure(height=tab.winfo_reqheight())
+        event.widget.configure(width=tab.winfo_reqwidth())
+
+
 class XUEXI:
     def __init__(self, use_Dingtalk=False):
         chrome_options = Options()
         self.__exit_flag = threading.Event()
         self.__exit_flag.clear()
         self.use_Dingtalk = use_Dingtalk
-        chrome_options.add_argument('--mute-audio')  # 关闭声音
+        if config['mute']:
+            chrome_options.add_argument('--mute-audio')  # 关闭声音
+
         if os.path.exists('driver/chrome.exe'):
             chrome_options.binary_location = 'driver/chrome.exe'
         # chrome_options.add_argument('--no-sandbox')#解决DevToolsActivePort文件不存在的报错
@@ -46,13 +65,14 @@ class XUEXI:
         # chrome_options.add_argument('--disable-gpu') #谷歌文档提到需要加上这个属性来规避bug
         # chrome_options.add_argument('--hide-scrollbars') #隐藏滚动条, 应对一些特殊页面
         # chrome_options.add_argument('blink-settings=imagesEnabled=false') #不加载图片, 提升速度
-        # chrome_options.add_argument('--headless') #浏览器不提供可视化页面. linux下如果系统不支持可视化不加这条会启动失败
+        if config['background_process'] and self.use_Dingtalk:
+            chrome_options.add_argument('--headless')  # 浏览器不提供可视化页面. linux下如果系统不支持可视化不加这条会启动失败
         self.driver = webdriver.Chrome('driver/chromedriver.exe', chrome_options=chrome_options)
         LOGGER.setLevel(logging.CRITICAL)
 
     '''
         return value:
-            True: already login
+            True: al;ready login
             False: not login
     '''
 
@@ -146,7 +166,7 @@ class XUEXI:
         app.log(u'当前得分情况：')
         score_title = iter([u'每日登陆', u'阅读文章', u'观看视频', u'文章学习时长', u'视频学习时长'])
         for s in self.driver.find_elements_by_xpath('//div[@class="my-points-card-text"]'):
-            app.log(u'                     %s: %s' % (next(score_title), s.text), printtime=False)
+            app.log(u'%s: %s' % (next(score_title), s.text), printtime=False)
             try:
                 score.append({'score': int(s.text.split('/')[0][:-1]), 'target': int(s.text.split('/')[1][:-1])})
             except Exception:
@@ -162,9 +182,9 @@ class XUEXI:
         article_url = 'https://www.xuexi.cn/lgdata/1jscb6pu1n2.json'
 
         try:
-            resp = requests.get(article_url)
-        except Exception as error:
-            print(error)
+            resp = requests.get(article_url, proxies=config['proxies'] if config['use_proxy'] else {})
+        except Exception:
+            raise TimeoutError('Timeout')
 
         resp_list = eval(resp.text)
 
@@ -187,6 +207,7 @@ class XUEXI:
                         break
                     else:
                         self.__exit_flag.wait(random.randint(0, 3))
+                app.log(u'%s 学习完毕' % link['title'])
                 yield True
             except Exception:
                 yield False
@@ -199,9 +220,9 @@ class XUEXI:
         video_url = 'https://www.xuexi.cn/lgdata/1novbsbi47k.json'
 
         try:
-            resp = requests.get(video_url)
+            resp = requests.get(video_url, proxies=config['proxies'] if config['use_proxy'] else {})
         except Exception as error:
-            app.log(error)
+            raise TimeoutError(error)
 
         resp_list = eval(resp.text)
 
@@ -236,6 +257,7 @@ class XUEXI:
                     self.__exit_flag.wait(video_duration)
                 else:
                     self.__exit_flag.wait(random.randint(3 * 60, 5 * 60))
+                app.log(u'%s 观看完毕' % link['title'])
                 yield True
             except Exception:
                 yield False
@@ -281,31 +303,43 @@ class Job(threading.Thread):
                         new_article = self.xx_obj.read_new_article()
                 except NameError:
                     new_article = self.xx_obj.read_new_article()
+                except TimeoutError as error:
+                    app.log('%s %s' % (error, u'如使用代理服务器，请检查代理服务器设置。'))
+                    self.__running.clear()
 
                 try:
                     next(new_article)
                 except StopIteration:
                     app.log(u'当日学习任务未完成。但爬取的文章已经全部阅读完毕。 ')
                     self.__running.clear()
-                except Exception:
-                    new_article = self.xx_obj.read_new_article()
+                except TimeoutError as error:
+                    app.log('%s %s' % (error, u'如果使用代理服务器，请检查代理服务器设置。'))
+                    self.__running.clear()
+                except Exception as error:
+                    app.log('%s %s' % (u'错误！请重试', error))
+                    self.__running.clear()
+
             elif score[2]['score'] < score[2]['target'] or score[4]['score'] < score[4]['target']:  # watch videos
                 try:
                     if not new_video:
                         new_video = self.xx_obj.watch_new_video()
                 except NameError:
                     new_video = self.xx_obj.watch_new_video()
+                except TimeoutError as error:
+                    app.log('%s %s' % (error, u'如果使用代理服务器，请检查代理服务器设置。'))
+                    self.__running.clear()
 
                 try:
                     next(new_video)
                 except StopIteration:
                     app.log(u'当日学习任务未完成。但爬取的视频已经全部观看完毕。 ')
                     self.__running.clear()
-                except Exception:
-                    new_video = self.xx_obj.watch_new_video()
+                except Exception as error:
+                    app.log('%s %s' % (u'错误！请重试', error))
+                    self.__running.clear()
+                score[4]['target'] -= 2
             else:                          # all tasks are done, sleep
                 app.log(u'当日学习任务已完成。 ')
-                app.log('下次学习时间: %s' % schedule.next_run())
                 self.__running.clear()
 
             self.__in_progress.wait()                     # wait until next task
@@ -338,16 +372,18 @@ class Job(threading.Thread):
 class App():
     def __init__(self, parent=None, *args, **kwargs):
         # init GUI
-        Grid.columnconfigure(parent, 0, weight=1)
+        Grid.columnconfigure(parent, 1, weight=1)
 
-        Grid.rowconfigure(parent, 1, weight=1)
+        Grid.rowconfigure(parent, 0, weight=1)
 
-        self.tab = ttk.Notebook(parent)
+        self.tab = Autoresized_Notebook(parent)
         self.auto_tab = ttk.Frame(self.tab)
         self.manually_tab = ttk.Frame(self.tab)
+        self.setting_tab = ttk.Frame(self.tab)
 
-        self.tab.add(self.manually_tab, text=u'手动学习')
-        self.tab.add(self.auto_tab, text=u'自动学习')
+        self.tab.add(self.manually_tab, text=u'手动')
+        self.tab.add(self.auto_tab, text=u'自动')
+        self.tab.add(self.setting_tab, text=u'设置')
 
         self.tab.grid(row=0, column=0, sticky='NSWE')
 
@@ -371,26 +407,26 @@ class App():
                                   variabl=login_method,
                                   value='Dingtalk')
 
-        self.separator_tab1 = ttk.Separator(self.manually_tab, orient=VERTICAL)
-        self.separator_tab1.grid(row=0, column=1, sticky='NS', padx=10, pady=0)
+        self.separator_tab1 = ttk.Separator(self.manually_tab, orient=HORIZONTAL)
+        self.separator_tab1.grid(row=1, column=0, sticky='WE', padx=0, pady=0)
 
         self.btn_start = ttk.Button(self.manually_tab, text=u"开始学习", command=self.start_click)
-        self.btn_start.grid(row=0, column=2, padx=5, pady=5, sticky='NWSE')
+        self.btn_start.grid(row=2, column=0, padx=5, pady=5, sticky='NSE')
 
         self.btn_pause = ttk.Button(self.manually_tab, text=u"暂停学习", command=self.pause_click)
-        self.btn_pause.grid(row=0, column=3, padx=5, pady=5, sticky='NWSE')
+        self.btn_pause.grid(row=3, column=0, padx=5, pady=5, sticky='NSE')
 
         self.btn_quit = ttk.Button(self.manually_tab, text=u"退出学习", command=self.quit_click)
-        self.btn_quit.grid(row=0, column=4, padx=5, pady=5, sticky='NWSE')
+        self.btn_quit.grid(row=4, column=0, padx=5, pady=5, sticky='NSE')
 
         # log window
         self.log_content = Listbox(parent, selectmode=EXTENDED, bg='#FFFFFF')
-        self.log_content.grid(row=1, column=0, padx=5, pady=5, sticky='NSWE')
+        self.log_content.grid(row=0, column=1, padx=5, pady=5, sticky='NSWE')
 
         self.vbar = ttk.Scrollbar(
             parent, orient=VERTICAL, command=self.log_content.yview)
         self.log_content.configure(yscrollcommand=self.vbar.set)
-        self.vbar.grid(row=1, column=2, sticky='NS')
+        self.vbar.grid(row=0, column=2, sticky='NS')
 
         # ######################## setting panel begin ###############################################
         def validate_time():
@@ -406,129 +442,175 @@ class App():
             self.schd_time.set('')
             return True
 
-        # separator
-        self.separator1 = ttk.Separator(self.auto_tab, orient=VERTICAL)
-        self.separator1.grid(row=0, column=4, sticky='NS', padx=10, pady=0)
+        self.separator_beforestatus = ttk.Separator(self.auto_tab, orient=HORIZONTAL)
+        self.separator_beforestatus.grid(row=3, column=0, sticky='WE', columnspan=2, padx=0, pady=0)
 
-        self.separator2 = ttk.Separator(self.auto_tab, orient=VERTICAL)
-        self.separator2.grid(row=0, column=7, sticky='NS', padx=10, pady=0)
-
-        # self.separator4 = ttk.Separator(self.auto_tab, orient=HORIZONTAL)
-        # self.separator4.grid(row=2, column=0, columnspan=5, sticky='WE', padx=5, pady=0)
-
-        # use dingtalk
-        # self.use_dingtalk = IntVar()
-        # self.use_dingtalk_box = ttk.Checkbutton(self.auto_tab, variable=self.use_dingtalk, text=u'钉钉登陆', command=test)
-        # self.use_dingtalk_box.grid(row=0, column=0, sticky='NWS')
-
-        # # use_schedule
-        # self.use_shcd = IntVar()
-        # self.use_shcd_box = ttk.Checkbutton(self.auto_tab, variable=self.use_shcd, text=u'定时学习')
-        # self.use_shcd_box.grid(row=1, column=0, sticky='NWS')
+        self.separator_afterstatus = ttk.Separator(self.auto_tab, orient=HORIZONTAL)
+        self.separator_afterstatus.grid(row=5, column=0, sticky='WE', columnspan=2, padx=0, pady=0)
 
         # dingtalk-user
         self.dingtalk_user_title = ttk.Label(self.auto_tab, text=u'钉钉账号：')
         self.dingtalk_user_title.grid(row=0, column=0, pady=5, stick='NSE')
 
         self.dingtalk_user = StringVar()
-        self.dingtalk_user_input = ttk.Entry(self.auto_tab, textvariable=self.dingtalk_user, width=16)
+        self.dingtalk_user_input = ttk.Entry(self.auto_tab, textvariable=self.dingtalk_user, width=12)
         self.dingtalk_user_input.grid(row=0, column=1, pady=5, stick='NSW')
 
         # dingtalk passwd
         self.dingtalk_pwd_title = ttk.Label(self.auto_tab, text=u'钉钉密码：')
-        self.dingtalk_pwd_title.grid(row=0, column=2, pady=5, stick='NSE')
+        self.dingtalk_pwd_title.grid(row=1, column=0, pady=5, stick='NSE')
 
         self.dingtalk_pwd = StringVar()
-        self.dingtalk_pwd_input = ttk.Entry(self.auto_tab, textvariable=self.dingtalk_pwd, show='*', width=16)
-        self.dingtalk_pwd_input.grid(row=0, column=3, pady=5, stick='NSW')
+        self.dingtalk_pwd_input = ttk.Entry(self.auto_tab, textvariable=self.dingtalk_pwd, show='*', width=12)
+        self.dingtalk_pwd_input.grid(row=1, column=1, pady=5, stick='NSW')
 
         # schedule titie
-        self.schd_title = ttk.Label(self.auto_tab, text=u'每日学习时刻:')
-        self.schd_title.grid(row=0, column=5, pady=5, stick='NSW')
+        self.schd_title = ttk.Label(self.auto_tab, text=u'学习时钟:')
+        self.schd_title.grid(row=2, column=0, pady=0, stick='NSW')
 
         # schedule_time
         self.schd_time = StringVar()
         self.schd_time_input = ttk.Entry(self.auto_tab, textvariable=self.schd_time, validate='focusout',
                                          validatecommand=validate_time, invalidcommand=restore_input_text, width=5)
-        self.schd_time_input.grid(row=0, column=6, pady=5, stick='NSW')
+        self.schd_time_input.grid(row=2, column=1, pady=5, stick='NSW')
 
+        self.auto_status = StringVar()
+        self.auto_status.set(u'状态：停止')
+        self.auto_status_label = ttk.Label(self.auto_tab, textvariable=self.auto_status)
+        self.auto_status_label.grid(row=4, column=0, pady=5, columnspan=2, sticky='NSW')
         # init monitor task
-        self.task_monitor = threading.Thread(target=self.run_monitor)
+
         self.__monitor_flag = threading.Event()
         self.__monitor_flag.set()
         # submit button
 
-        def go_click():
-            global config
-            config['dingtalk']['username'] = self.dingtalk_user.get()
-            config['dingtalk']['password'] = self.dingtalk_pwd.get()
-            config['schedule']['schedule_time'] = self.schd_time.get()
+        self.btn_go = ttk.Button(self.auto_tab, text=u'Go!', command=self.go_click)
+        self.btn_go.grid(row=6, column=1, padx=5, pady=5, sticky='NSE')
 
-            with open('./config/xuexi.conf', 'w+') as f:
-                json.dump(config, f)
-
-            app.log(u'保存配置成功。配置及时生效')
-            app.log('                    钉钉用户名: %s' % config['dingtalk']['username'], printtime=False)
-
-            schedule.clear()
-            if config['schedule']['schedule_time']:
-                schedule.every().day.at(config['schedule']['schedule_time']).do(self.start_click, sched_task=True)
-            else:
-                schedule.every().day.at("08:00").do(self.start_click)
-
-            if not self.task_monitor.isAlive():
-                self.task_monitor.setDaemon(True)
-                self.task_monitor.start()
-
-            app.log('                    下次学习时间: %s' % schedule.next_run(), printtime=False)
-
-        def stop_click():
-            schedule.clear()
-            self.__monitor_flag.clear()
-            self.quit_click()
-
-        self.btn_go = ttk.Button(self.auto_tab, text=u'Go!', command=go_click)
-        self.btn_go.grid(row=0, column=8, pady=5)
-
-        self.btn_stop = ttk.Button(self.auto_tab, text=u'Stop!', command=stop_click)
-        self.btn_stop.grid(row=0, column=9, pady=5, columnspan=5)
+        self.btn_stop = ttk.Button(self.auto_tab, text=u'Stop!', command=self.stop_click)
+        self.btn_stop.grid(row=7, column=1, padx=5, pady=5, sticky='NSE')
 
         # ######################## setting panel end ###############################################
+
+        # ############### proxy settings ############
+
+        self.separator_after_proxies = ttk.Separator(self.setting_tab, orient=HORIZONTAL)
+        self.separator_after_proxies.grid(row=5, column=0, sticky='WE', columnspan=2, padx=0, pady=0)
+
+        # self.separator_before_proxies = ttk.Separator(self.setting_tab, orient=VERTICAL)
+        # self.separator_before_proxies.grid(row=0, column=1, sticky='NS', padx=10, pady=0)
+
+        self.use_proxy = IntVar()
+        self.use_proxy_checkbox = ttk.Checkbutton(self.setting_tab, variable=self.use_proxy, text='使用代理')
+        self.use_proxy_checkbox.grid(row=0, column=0, pady=5, columnspan=2, stick='NSW')
+
+        self.http_proxy_title = ttk.Label(self.setting_tab, text=u'Http:')
+        self.http_proxy_title.grid(row=1, column=0, pady=5, stick='NSE')
+
+        self.http_proxy = StringVar()
+        self.http_proxy_input = ttk.Entry(self.setting_tab, textvariable=self.http_proxy, width=16)
+        self.http_proxy_input.grid(row=1, column=1, pady=5, stick='NSW')
+
+        # dingtalk passwd
+        self.https_proxy_title = ttk.Label(self.setting_tab, text=u'Https:')
+        self.https_proxy_title.grid(row=2, column=0, pady=5, padx=5, stick='NSE')
+
+        self.https_proxy = StringVar()
+        self.https_proxy_input = ttk.Entry(self.setting_tab, textvariable=self.https_proxy, width=16)
+        self.https_proxy_input.grid(row=2, column=1, pady=5, stick='NSW')
+
+        self.mute = IntVar()
+        self.mute_checkbox = ttk.Checkbutton(self.setting_tab, variable=self.mute, text='关闭声音')
+        self.mute_checkbox.grid(row=3, column=0, pady=5, columnspan=2, stick='NSW')
+
+        self.background_process = IntVar()
+        self.background_process_checkbox = ttk.Checkbutton(self.setting_tab, variable=self.background_process, text='后台运行')
+        self.background_process_checkbox.grid(row=4, column=0, pady=5, columnspan=2, stick='NSW')
+
+        def proxy_submit():
+            app.log(u'保存{0}! 使用代理:：{config[use_proxy]}. '
+                    '关闭声音：{config[mute]}.  '
+                    '后台播放：{config[background_process]}'.format(u'成功' if self.save_settings() else u'失败', config=config))
+
+        self.proxy_submit = ttk.Button(self.setting_tab, text=u'提交', command=proxy_submit)
+        self.proxy_submit.grid(row=6, column=0, pady=5, columnspan=2)
+
+        # load settings
         global config
         self.dingtalk_user.set(config['dingtalk']['username'])
         self.dingtalk_pwd.set(config['dingtalk']['password'])
         self.schd_time.set(config['schedule']['schedule_time'])
+        if 'use_proxy' in config:
+            self.use_proxy.set(config['use_proxy'])
+        if 'proxies' in config:
+            self.http_proxy.set(config['proxies']['http'])
+            self.https_proxy.set(config['proxies']['https'])
+
+        if 'mute' in config:
+            self.mute.set(config['mute'])
+
+        if 'background_process' in config:
+            self.background_process.set(config['background_process'])
+
+    def save_settings(self):
+        global config
+        config['dingtalk']['username'] = self.dingtalk_user.get()
+        config['dingtalk']['password'] = self.dingtalk_pwd.get()
+        config['schedule']['schedule_time'] = self.schd_time.get()
+        config['use_proxy'] = True if self.use_proxy.get() else False
+        config['proxies'] = {
+            'http': self.http_proxy.get(),
+            'https': self.https_proxy.get()
+        }
+        config['mute'] = True if self.mute.get() else False
+        config['background_process'] = True if self.background_process.get() else False
+
+        try:
+            with open('./config/xuexi.conf', 'w+') as f:
+                json.dump(config, f)
+        except FileNotFoundError as error:
+            app.log(error)
+            return False
+        return True
 
     def run_monitor(self):
         self.__monitor_flag.set()
         while self.__monitor_flag.isSet():
             schedule.run_pending()
             time.sleep(1)
+            # self.__monitor_flag.wait()
+            if schedule.next_run is not None:
+                self.auto_status.set(u'运行中...\n下次运行时间：\n %s\n当前时间:\n %s' % (schedule.next_run(), datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+            else:
+                self.auto_status.set(u'状态：无任务')
+
+        self.auto_status.set(u'状态：停止')
 
     def log(self, logstring, printtime=True):
         if printtime:
             self.log_content.insert(END, u'%s %s' % (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), logstring))
         else:
-            self.log_content.insert(END, u'%s' % (logstring))
+            self.log_content.insert(END, u'    %s' % (logstring))
 
         self.log_content.see(END)
 
     def start_click(self, sched_task=False):
         try:
-            if self.job.isAlive():
-                if self.job.status() != 'running':
-                    self.job.job_start()
-                    self.log(u'继续当日学习。期间您可以正常使用电脑。')
-            else:
+            self.job.isAlive()
+        except AttributeError:
+            self.job = Job(sched_task=sched_task)
+        else:
+            if not self.job.isAlive():
                 self.job = Job(sched_task=sched_task)
+        finally:
+            if not self.job.isAlive():
                 self.job.setDaemon(True)
                 self.job.start()
                 self.log(u'开始学习。期间您可以正常使用电脑。')
-        except Exception:
-            self.job = Job(sched_task=sched_task)
-            self.job.setDaemon(True)
-            self.job.start()
-            self.log(u'开始学习，请不要将浏览器最小化。期间您可以正常使用电脑。')
+            else:
+                if self.job.status() != 'running':
+                    self.job.job_start()
+                    self.log(u'继续当日学习。期间您可以正常使用电脑。')
 
     def pause_click(self):
         try:
@@ -544,6 +626,35 @@ class App():
             self.log(u'用户退出!停止当前任务。')
         except AttributeError:
             self.log(u'没有正在进行的学习任务！')
+
+    def go_click(self):
+        self.save_settings()
+
+        schedule.clear()
+        if config['schedule']['schedule_time']:
+            schedule.every().day.at(config['schedule']['schedule_time']).do(self.start_click, sched_task=True)
+        else:
+            schedule.every().day.at("08:00").do(self.start_click)
+
+        try:
+            self.task_monitor.isAlive()
+        except AttributeError:
+            self.task_monitor = threading.Thread(target=self.run_monitor)
+        else:
+            if not self.task_monitor.isAlive():
+                self.task_monitor = threading.Thread(target=self.run_monitor)
+        finally:
+            if not self.task_monitor.isAlive():
+                self.task_monitor.setDaemon(True)
+                self.task_monitor.start()
+
+        app.log('当前账号： %s' % config['dingtalk']['username'])
+        app.log('等待下次学习时间: %s' % schedule.next_run())
+
+    def stop_click(self):
+        schedule.clear()
+        self.__monitor_flag.clear()
+        self.quit_click()
 
     # def show_img(self, pil_image):
     #     tk_image = ImageTk.PhotoImage(pil_image)
@@ -566,8 +677,6 @@ def pre_init():
             config = json.load(f)
     else:
         config = {
-            'use_dingtalk': False,
-            'use_schedule': False,
             'dingtalk':
             {
                 'username': '',
@@ -576,7 +685,15 @@ def pre_init():
             'schedule':
             {
                 'schedule_time': '08:00'
-            }
+            },
+            'use_proxy': False,
+            'proxies':
+            {
+                'http': '',
+                'https': ''
+            },
+            'mute': True,
+            'background_process': False
         }
 
 
