@@ -19,6 +19,7 @@ import random
 from selenium.webdriver.remote.remote_connection import LOGGER
 from selenium.webdriver.chrome.options import Options
 import schedule
+import requests
 # from PIL import Image, ImageTk
 # import base64
 # import cv2
@@ -151,12 +152,6 @@ class XUEXI:
             except Exception:
                 pass
 
-        '''
-        if there is only one handle, keep it.
-        Otherwise, just use it to check the points, and then close it.
-        '''
-        if len(self.driver.window_handles) > 1:
-            self.driver.close()
         return score
 
     '''
@@ -164,21 +159,21 @@ class XUEXI:
     '''
 
     def read_new_article(self, page=1):
-        article_url = 'https://www.xuexi.cn/98d5ae483720f701144e4dabf99a4a34/5957f69bffab66811b99940516ec8784.html?pageNumber=%d' % page
-        # https://login.dingtalk.com/login/index.htm?goto=https%3A%2F%2Foapi.dingtalk.com%2Fconnect%2Foauth2%2Fsns_authorize%3Fappid%3Ddingoankubyrfkttorhpou%26response_type%3Dcode%26scope%3Dsnsapi_login%26redirect_uri%3Dhttps%3A%2F%2Fpc-api.xuexi.cn%2Fopen%2Fapi%2Fsns%2Fcallback
+        article_url = 'https://www.xuexi.cn/lgdata/1jscb6pu1n2.json'
 
-        self.driver.get(article_url)
-        main_tab = self.driver.current_window_handle      # main page tab, used to open the main page
+        try:
+            resp = requests.get(article_url)
+        except Exception as error:
+            print(error)
+
+        resp_list = eval(resp.text)
 
         self.__exit_flag.clear()
 
-        for link in self.driver.find_elements_by_id("Ca4gvo4bwg7400"):
-            self.driver.switch_to.window(main_tab)
+        for link in resp_list:
             try:
-                link.click()
-                app.log(u'正在学习文章：%s' % link.text)
-                all_tab = self.driver.window_handles
-                self.driver.switch_to.window(all_tab[-1])   # switch to new tab
+                self.driver.get(link['url'])
+                app.log(u'正在学习文章：%s' % link['title'])
                 while not self.__exit_flag.isSet():
                     ActionChains(self.driver).key_down(Keys.DOWN).perform()
 
@@ -201,20 +196,21 @@ class XUEXI:
     '''
 
     def watch_new_video(self):
-        video_url = 'https://www.xuexi.cn/4426aa87b0b64ac671c96379a3a8bd26/db086044562a57b441c24f2af1c8e101.html'
+        video_url = 'https://www.xuexi.cn/lgdata/1novbsbi47k.json'
 
-        self.driver.get(video_url)
-        main_tab = self.driver.current_window_handle      # main page tab, used to open the main page
+        try:
+            resp = requests.get(video_url)
+        except Exception as error:
+            app.log(error)
+
+        resp_list = eval(resp.text)
 
         self.__exit_flag.clear()
 
-        for link in self.driver.find_elements_by_id("Ck3ln2wlyg3k00"):
-            self.driver.switch_to.window(main_tab)
+        for link in resp_list:
             try:
-                link.click()
-                app.log(u'正在观看视频: %s' % link.text)
-                all_tab = self.driver.window_handles
-                self.driver.switch_to.window(all_tab[-1])   # switch to new tab
+                self.driver.get(link['url'])
+                app.log(u'正在观看视频: %s' % link['title'])
 
                 for i in range(10):
                     ActionChains(self.driver).key_down(Keys.DOWN).perform()
