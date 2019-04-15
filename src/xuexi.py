@@ -33,7 +33,7 @@ logging.basicConfig(level=logging.ERROR)
 
 
 global version
-version = '1.0'
+version = '1.1'
 
 
 class Autoresized_Notebook(ttk.Notebook):
@@ -703,5 +703,5 @@ if __name__ == '__main__':
     global app
     app = App(parent=root)
     root.geometry('800x480')
-    root.title(u'自动学习--学习强国 v1.0')
+    root.title(u'自动学习--学习强国 v' + version)
     root.mainloop()
