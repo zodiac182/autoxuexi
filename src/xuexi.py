@@ -248,15 +248,15 @@ class XUEXI:
                 if len(time_arr) == 2:
                     video_duration = int(time_arr[-1]) + int(time_arr[-2]) * 60
                 elif len(time_arr) == 3:
-                    video_duration = 60 * 60   # more than 1 hour, count it as i hour
+                    video_duration = 60 * 60   # more than 1 hour, count it as 1 hour
                 else:
                     video_duration = 0
 
-                # wait at most 10 minute for each video
-                if video_duration > 0 and video_duration < 5 * 60:
-                    self.__exit_flag.wait(video_duration)
-                else:
-                    self.__exit_flag.wait(random.randint(3 * 60, 5 * 60))
+                self.__exit_flag.wait(video_duration)
+                # if video_duration > 0 and video_duration < 5 * 60:
+                #     self.__exit_flag.wait(video_duration)
+                # else:
+                #     self.__exit_flag.wait(random.randint(3 * 60, 5 * 60))
                 app.log(u'%s 观看完毕' % link['title'])
                 yield True
             except Exception:
