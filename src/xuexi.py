@@ -231,16 +231,17 @@ class XUEXI:
         for link in resp_list:
             try:
                 self.driver.get(link['url'])
-                app.log(u'正在观看视频: %s' % link['title'])
-
-                for i in range(10):
-                    ActionChains(self.driver).key_down(Keys.DOWN).perform()
-                    self.__exit_flag.wait(1)
 
                 duration = WebDriverWait(self.driver, 60).until(expected_conditions.presence_of_element_located(
                     (By.XPATH, './/span[@class="duration"]')))
 
                 ret = duration.get_attribute('innerText')
+
+                app.log(u'正在观看视频: %s, 视频长度:%s' % (link['title'], ret))
+
+                for i in range(10):
+                    ActionChains(self.driver).key_down(Keys.DOWN).perform()
+                    self.__exit_flag.wait(1)
 
                 time_arr = ret.split(':')
 
