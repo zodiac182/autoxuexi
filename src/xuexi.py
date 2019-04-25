@@ -77,7 +77,7 @@ class XUEXI:
     '''
 
     def login(self):
-        self.driver.get('https://pc.xuexi.cn/points/login.html')
+        self.driver.get('https://pc.xuexi.cn/points/login.html?ref=https://pc.xuexi.cn/points/my-points.html')
 
         if re.match(r'^https://pc.xuexi.cn/points/login.html.*', self.driver.current_url) and (login_method.get() == 'Dingtalk' or self.use_Dingtalk):
             self.driver.get('https://login.dingtalk.com/login/index.htm?goto=https%3A%2F%2Foapi.dingtalk.com%2Fconnect%2Foauth2%2Fsns_authorize%3F'
@@ -258,7 +258,7 @@ class XUEXI:
                 #     self.__exit_flag.wait(video_duration)
                 # else:
                 #     self.__exit_flag.wait(random.randint(3 * 60, 5 * 60))
-                app.log(u'%s 观看完毕' % link['title'])
+                app.log(u'%s 观看完毕' % link['title']) 
                 yield True
             except Exception:
                 yield False
