@@ -258,7 +258,7 @@ class XUEXI:
                 #     self.__exit_flag.wait(video_duration)
                 # else:
                 #     self.__exit_flag.wait(random.randint(3 * 60, 5 * 60))
-                app.log(u'%s 观看完毕' % link['title']) 
+                app.log(u'%s 观看完毕' % link['title'])
                 yield True
             except Exception:
                 yield False
