@@ -33,7 +33,7 @@ logging.basicConfig(level=logging.ERROR)
 
 
 global version
-version = '1.1'
+version = '1.1.1'
 
 
 class Autoresized_Notebook(ttk.Notebook):
@@ -199,8 +199,8 @@ class XUEXI:
 
                     self.driver.execute_script("""
                         (function(){
-                            if (document.documentElement.scrollTop + document.body.clientHeight >= document.body.scrollHeight - 10){
-                                document.title += "scroll-done";}
+                            if (document.documentElement.scrollTop + document.documentElement.clientHeight  >= document.documentElement.scrollHeight*0.9){
+                                document.title = 'scroll-done';}
                             })();
                             """)
                     if u'scroll-done' in self.driver.title:
@@ -232,18 +232,25 @@ class XUEXI:
             try:
                 self.driver.get(link['url'])
 
-                duration = WebDriverWait(self.driver, 60).until(expected_conditions.presence_of_element_located(
-                    (By.XPATH, './/span[@class="duration"]')))
+                duration = WebDriverWait(self.driver, 10).until(expected_conditions.visibility_of_element_located(
+                    (By.CSS_SELECTOR, '.duration')))
 
                 ret = duration.get_attribute('innerText')
 
                 app.log(u'正在观看视频: %s, 视频长度:%s' % (link['title'], ret))
 
-                for i in range(10):
+                for i in range(5):
                     ActionChains(self.driver).key_down(Keys.DOWN).perform()
                     self.__exit_flag.wait(1)
 
                 time_arr = ret.split(':')
+                try:
+                    play = WebDriverWait(self.driver, 2).until(expected_conditions.visibility_of_element_located(
+                        (By.CSS_SELECTOR, '.prism-big-play-btn')))
+                    print(play)
+                    play.click()
+                except Exception:
+                    pass
 
                 video_duration = 0
                 if len(time_arr) == 2:
