@@ -33,7 +33,7 @@ logging.basicConfig(level=logging.ERROR)
 
 
 global version
-version = '1.1.1'
+version = '1.1.2'
 
 
 class Autoresized_Notebook(ttk.Notebook):
@@ -172,6 +172,8 @@ class XUEXI:
             except Exception:
                 pass
 
+        print('++++', score)
+
         return score
 
     '''
@@ -232,22 +234,21 @@ class XUEXI:
             try:
                 self.driver.get(link['url'])
 
-                duration = WebDriverWait(self.driver, 10).until(expected_conditions.visibility_of_element_located(
+                app.log(u'找到视频: %s' % (link['title']))
+
+                self.__exit_flag.wait(10)  # wait 10 minutes for video loading
+
+                duration = WebDriverWait(self.driver, 10).until(expected_conditions.presence_of_element_located(
                     (By.CSS_SELECTOR, '.duration')))
 
                 ret = duration.get_attribute('innerText')
 
                 app.log(u'正在观看视频: %s, 视频长度:%s' % (link['title'], ret))
 
-                for i in range(5):
-                    ActionChains(self.driver).key_down(Keys.DOWN).perform()
-                    self.__exit_flag.wait(1)
-
                 time_arr = ret.split(':')
                 try:
                     play = WebDriverWait(self.driver, 2).until(expected_conditions.visibility_of_element_located(
                         (By.CSS_SELECTOR, '.prism-big-play-btn')))
-                    print(play)
                     play.click()
                 except Exception:
                     pass
@@ -267,7 +268,7 @@ class XUEXI:
                 #     self.__exit_flag.wait(random.randint(3 * 60, 5 * 60))
                 app.log(u'%s 观看完毕' % link['title'])
                 yield True
-            except Exception:
+            except Exception as error:
                 yield False
 
     def stop(self):
