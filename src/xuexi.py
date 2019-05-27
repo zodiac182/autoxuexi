@@ -235,10 +235,10 @@ class XUEXI:
 
                 app.log(u'找到视频: %s' % (link['title']))
 
-                self.__exit_flag.wait(10)  # wait 10 minutes for video loading
-
                 duration = WebDriverWait(self.driver, 10).until(expected_conditions.presence_of_element_located(
                     (By.CSS_SELECTOR, '.duration')))
+
+                self.__exit_flag.wait(5)  # wait 10 minutes for video loading
 
                 ret = duration.get_attribute('innerText')
 
@@ -613,11 +613,11 @@ class App():
             if not self.job.isAlive():
                 self.job.setDaemon(True)
                 self.job.start()
-                self.log(u'开始学习。期间您可以正常使用电脑。')
+                self.log(u'开始学习。请不要最小化浏览器。可在设置中选择后台运行隐藏浏览器进行学习。')
             else:
                 if self.job.status() != 'running':
                     self.job.job_start()
-                    self.log(u'继续当日学习。期间您可以正常使用电脑。')
+                    self.log(u'继续当日学习。请不要最小化浏览器。可在设置中选择后台运行隐藏浏览器进行学习。')
 
     def pause_click(self):
         try:
