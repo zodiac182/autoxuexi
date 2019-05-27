@@ -172,15 +172,13 @@ class XUEXI:
             except Exception:
                 pass
 
-        print('++++', score)
-
         return score
 
     '''
     get an new article url, and open it
     '''
 
-    def read_new_article(self, page=1):
+    def read_new_article(self):
         article_url = 'https://www.xuexi.cn/lgdata/1jscb6pu1n2.json'
 
         try:
@@ -208,10 +206,11 @@ class XUEXI:
                     if u'scroll-done' in self.driver.title:
                         break
                     else:
-                        self.__exit_flag.wait(random.randint(0, 3))
+                        self.__exit_flag.wait(random.randint(3, 10))
                 app.log(u'%s 学习完毕' % link['title'])
                 yield True
-            except Exception:
+            except Exception as error:
+                logging.debug(error)
                 yield False
 
     '''
@@ -269,6 +268,7 @@ class XUEXI:
                 app.log(u'%s 观看完毕' % link['title'])
                 yield True
             except Exception as error:
+                logging.debug(error)
                 yield False
 
     def stop(self):
@@ -337,7 +337,6 @@ class Job(threading.Thread):
                 except TimeoutError as error:
                     app.log('%s %s' % (error, u'如果使用代理服务器，请检查代理服务器设置。'))
                     self.__running.clear()
-
                 try:
                     next(new_video)
                 except StopIteration:
@@ -346,7 +345,6 @@ class Job(threading.Thread):
                 except Exception as error:
                     app.log('%s %s' % (u'错误！请重试', error))
                     self.__running.clear()
-                score[4]['target'] -= 2
             else:                          # all tasks are done, sleep
                 app.log(u'当日学习任务已完成。 ')
                 self.__running.clear()
