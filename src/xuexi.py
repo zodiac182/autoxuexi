@@ -20,20 +20,42 @@ from selenium.webdriver.remote.remote_connection import LOGGER
 from selenium.webdriver.chrome.options import Options
 import schedule
 import requests
+import sqlite3
 # from PIL import Image, ImageTk
 # import base64
 # import cv2
 # import numpy as np
 
 
-logging.basicConfig(level=logging.ERROR)
+logging.basicConfig(level=logging.DEBUG)
 
 #  download dataindex.js
 # https://www.xuexi.cn/dataindex.js?v=1549968788
 
 
 global version
-version = '1.1.2'
+version = '2.1.0'
+
+
+def read_check(id, type):
+    try:
+        conn = sqlite3.Connection('data/xuexi.db')
+        cursor = conn.cursor()
+        if cursor.execute('select * from read_history where id = "%s"' % id).fetchall() == []:
+            cursor.execute('insert into read_history values("%s","%s")' % (id, type))
+            conn.commit()
+            logging.debug('new content %s %s' % (id, type))
+            return True
+        else:
+            logging.debug('%s is in read history' % id)
+            return False
+    except Exception as error:
+        logging.debug(error)
+    finally:
+        cursor.close()
+        conn.close()
+
+    return True
 
 
 class Autoresized_Notebook(ttk.Notebook):
@@ -192,6 +214,9 @@ class XUEXI:
 
         for link in resp_list:
             try:
+                if not read_check(link['itemId'], 'article'):
+                    continue
+
                 self.driver.get(link['url'])
                 app.log(u'正在学习文章：%s' % link['title'])
                 while not self.__exit_flag.isSet():
@@ -206,7 +231,7 @@ class XUEXI:
                     if u'scroll-done' in self.driver.title:
                         break
                     else:
-                        self.__exit_flag.wait(random.randint(3, 10))
+                        self.__exit_flag.wait(random.randint(3, 5))
                 app.log(u'%s 学习完毕' % link['title'])
                 yield True
             except Exception as error:
@@ -231,20 +256,23 @@ class XUEXI:
 
         for link in resp_list:
             try:
+                if not read_check(link['itemId'], 'video'):
+                    continue
+
                 self.driver.get(link['url'])
 
                 app.log(u'找到视频: %s' % (link['title']))
 
-                duration = WebDriverWait(self.driver, 10).until(expected_conditions.presence_of_element_located(
+                web_duration = WebDriverWait(self.driver, 10).until(expected_conditions.presence_of_element_located(
                     (By.CSS_SELECTOR, '.duration')))
 
                 self.__exit_flag.wait(5)  # wait 10 minutes for video loading
 
-                ret = duration.get_attribute('innerText')
+                duration = web_duration.get_attribute('innerText')
 
-                app.log(u'正在观看视频: %s, 视频长度:%s' % (link['title'], ret))
+                app.log(u'正在观看视频: %s, 视频长度:%s' % (link['title'], duration))
 
-                time_arr = ret.split(':')
+                time_arr = duration.split(':')
                 try:
                     play = WebDriverWait(self.driver, 2).until(expected_conditions.visibility_of_element_located(
                         (By.CSS_SELECTOR, '.prism-big-play-btn')))
@@ -260,7 +288,17 @@ class XUEXI:
                 else:
                     video_duration = 0
 
-                self.__exit_flag.wait(video_duration)
+                # self.__exit_flag.wait(video_duration)
+                while not self.__exit_flag.isSet():
+                    web_current_time = WebDriverWait(self.driver, 10).until(expected_conditions.presence_of_element_located(
+                        (By.CSS_SELECTOR, '.current-time')))
+                    currtime = web_current_time.get_attribute('innerText')
+                    print(currtime)
+                    if currtime == duration:
+                        break
+                    else:
+                        self.__exit_flag.wait(1)
+
                 # if video_duration > 0 and video_duration < 5 * 60:
                 #     self.__exit_flag.wait(video_duration)
                 # else:
@@ -328,7 +366,7 @@ class Job(threading.Thread):
                     app.log('%s %s' % (u'错误！请重试', error))
                     self.__running.clear()
 
-            elif score[2]['score'] < score[2]['target'] or score[4]['score'] < score[4]['target']:  # watch videos
+            elif score[2]['score'] < score[2]['target'] or score[4]['score'] < score[4]['target'] or True:  # watch videos
                 try:
                     if not new_video:
                         new_video = self.xx_obj.watch_new_video()
