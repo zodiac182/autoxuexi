@@ -27,7 +27,7 @@ import sqlite3
 # import numpy as np
 
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.ERROR)
 
 #  download dataindex.js
 # https://www.xuexi.cn/dataindex.js?v=1549968788
@@ -231,7 +231,7 @@ class XUEXI:
                     if u'scroll-done' in self.driver.title:
                         break
                     else:
-                        self.__exit_flag.wait(random.randint(3, 5))
+                        self.__exit_flag.wait(random.randint(2, 5))
                 app.log(u'%s 学习完毕' % link['title'])
                 yield True
             except Exception as error:
@@ -293,7 +293,6 @@ class XUEXI:
                     web_current_time = WebDriverWait(self.driver, 10).until(expected_conditions.presence_of_element_located(
                         (By.CSS_SELECTOR, '.current-time')))
                     currtime = web_current_time.get_attribute('innerText')
-                    print(currtime)
                     if currtime == duration:
                         break
                     else:
@@ -366,7 +365,7 @@ class Job(threading.Thread):
                     app.log('%s %s' % (u'错误！请重试', error))
                     self.__running.clear()
 
-            elif score[2]['score'] < score[2]['target'] or score[4]['score'] < score[4]['target'] or True:  # watch videos
+            elif score[2]['score'] < score[2]['target'] or score[4]['score'] < score[4]['target']:  # watch videos
                 try:
                     if not new_video:
                         new_video = self.xx_obj.watch_new_video()

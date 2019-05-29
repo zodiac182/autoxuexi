@@ -3,7 +3,6 @@
 import sqlite3
 import os
 
-
 def create_db():
     try:
         if not os.path.exists('data/'):
@@ -21,6 +20,7 @@ def create_db():
         conn.commit()
         conn.close()
 
+
 def create_user():
     try:
         if not os.path.exists('data/'):
@@ -32,7 +32,6 @@ def create_user():
         cursor.execute('create table read_history(id varchar(20) primary key, type varchar(10))')
         return
     except Exception:
-        print('+++')
         return
     finally:
         cursor.close()
